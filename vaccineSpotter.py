@@ -4,7 +4,11 @@ import os
 import smtplib
 from time import time,ctime
 import yaml
+# import winsound
 
+def make_sound(duration=1000, frequency=2500):
+	duration = duration
+	# winsound.Beep(frequency, duration)
 
 class vaccineSpotter:
 	def __init__(self, config_file_path, time_delay=1):
@@ -97,7 +101,8 @@ class vaccineSpotter:
 					output.append(res)
 		return output
 
-	def call_api(self, url, headers, query_type):
+	def call_api(self, url, headers, query_type, only_astra=True):
+		make_sound(duration=1000)
 		response = requests.get(url, headers = headers)
 		if response.status_code == 200:
 			print("API call success")
@@ -113,17 +118,52 @@ class vaccineSpotter:
 				print("Vaccines available")
 				print('\007')
 				result_str = ""
+
+				# vac_days = [ for center in output]
+				today = int(date.today().day)
+				# print(['here ', vac_days, today])
+
+				# for vac_day in vac_days:
+				# 	if vac_day>today:
+				# 		tomorrow = True
+				# 		break
+				# 	else:
+				# 		tomorrow = False
+
+				# print(['tomorrow', tomorrow])
+
 				for center in output:
-					result_str = result_str + center['name'] + "\n"
-					result_str = result_str + "block:"+center['block_name'] + "\n"
-					result_str = result_str + "vaccine count:"+str(center['available_capacity']) + "\n"
-					result_str = result_str + "vaccine type:"+ center['vaccine_type'] + "\n"
-					result_str = result_str + center['date'] + "\n"
-					result_str = result_str + "age_limit:"+str(center['age_limit'])+"\n"
-					result_str = result_str + "-----------------------------------------------------\n"
-				self.send_email(result_str)
+					vac_day = int(center['date'].split('-')[0])
+					if vac_day>today:
+							tomorrow = True
+					else:
+						tomorrow = False
+					
+					tomorrow = True
+					count = center['available_capacity']
+
+					if only_astra and center['vaccine_type']=='COVISHIELD' and tomorrow and count>10:	
+
+						result_str = result_str + center['name'] + "\n"
+						result_str = result_str + "block:"+center['block_name'] + "\n"
+						result_str = result_str + "vaccine count:"+str(center['available_capacity']) + "\n"
+						result_str = result_str + "vaccine type:"+ center['vaccine_type'] + "\n"
+						result_str = result_str + center['date'] + "\n"
+						result_str = result_str + "age_limit:"+str(center['age_limit'])+"\n"
+						result_str = result_str + "-----------------------------------------------------\n"
+						make_sound(duration=10000)
+
+				print('result')
+				print(result_str)
+
+				
+	
+
+				if 'block' in result_str:
+					self.send_email(result_str)
 
 			else:
+				
 				print("Vaccines not available for age limit {}\nTrying again\
 				 after {} minute.....\n".format(*self.age_limit, self.time_delay))
 		else:
@@ -131,7 +171,7 @@ class vaccineSpotter:
 				after {} minute.....\n".format(response.status_code, self.time_delay))
 
 
-	def query(self, root_url, headers, query_type):
+	def query(self, root_url, headers, query_type, code=None):
 		print(ctime(time()))
 		
 		# format date
@@ -139,9 +179,11 @@ class vaccineSpotter:
 		d1 = today.strftime("%d/%m/%Y")
 		__date = str(d1).replace("/","-")
 
-
 		if query_type == 'district_code':
-			url = root_url + "/calendarByDistrict?district_id=" + self.__district_code + "&date="+ __date
+			if code:
+				url = root_url + "/calendarByDistrict?district_id=" + code + "&date="+ __date
+			else:	
+				url = root_url + "/calendarByDistrict?district_id=" + self.__district_code + "&date="+ __date
 
 		elif query_type =='pincode':
 			url = root_url + "/findByPin?pincode=" + self.__pincode + "&date=" + __date
@@ -150,10 +192,16 @@ class vaccineSpotter:
 			return
 		self.call_api(url,  headers, query_type)
 
+	def query_districts(self, root_url, headers, query_type):
+		district_codes = self.__district_code.split(',')
+		for code in district_codes:
+			print('querying district ', code)
+			self.query(root_url, headers, query_type, code)
+
 
 t = datetime.now()
 if __name__ == '__main__':
-	time_delay = 1
+	time_delay = 0.3
 	query_type = 'district_code' # set it to "pincode" to query by pincode
 	config_file_path = 'config.yml'
 	
@@ -163,10 +211,16 @@ if __name__ == '__main__':
 	headers = {'User-Agent': "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_11_5) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/50.0.2661.102 Safari/537.36"}
 
 	vaccineSpotter = vaccineSpotter(config_file_path, time_delay)
-	vaccineSpotter.query(root_url, headers, query_type)
+	# vaccineSpotter.query(root_url, headers, query_type)
+
+	vaccineSpotter.query_districts(root_url, headers, query_type)
+
+	# test email
+	# vaccineSpotter.send_email('This is a test email from vaccine spotter')
 
 	while True:
 		delta = datetime.now()-t
 		if delta.seconds >= time_delay * 60:
-			vaccineSpotter.query(root_url, headers, query_type)
+			# vaccineSpotter.query(root_url, headers, query_type)
+			vaccineSpotter.query_districts(root_url, headers, query_type)
 			t = datetime.now()

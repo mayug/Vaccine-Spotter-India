@@ -1,14 +1,14 @@
 email:
-  sent_from : "<sender_email>" 
-  email_password : "<sender_password>"
+  sent_from : "mayug.vaccine@gmail.com" 
+  email_password : "iit2013jee"
 
   # [edit] enter receiver email details
-  to : ["<receiver_email_id>"]
+  to : ["mayug.vaccine@gmail.com"]
 
 area_info:
 # [edit] enter your district code or pincode
-  __district_code : "<district_code>" 
+  __district_code : "302,303,307,305" 
   __pincode : "<pincode>"
   
 age_limit:
-  age_limit : [18, 45]
+  age_limit : [18]
